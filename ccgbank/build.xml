@@ -416,6 +416,29 @@
     </copy>
   </target>
 
+  <!-- extracts a grammar from the training section with no cat cutoffs and NO rule cutoffs, copying it to ${grams.dir}/train-rcf1 -->
+  <target name="extract-train-rcf1" depends="check-train-extracted"
+          unless="extract.train.uptodate">
+    <extract target="${extract.dir}" grammarName="train" ppheads="false" catFreqCutoff="1" lexFreqCutoff="1" openFreqCutoff="50" ruleFreqCutoff="1" skipUnmatched="true">
+      <sources>
+        <fileset dir="${convert.dir}">
+          <include name="*/*.xml" />
+          <exclude name="00/*" />
+          <exclude name="01/*" />
+          <exclude name="22/*" />
+          <exclude name="23/*" />
+          <exclude name="24/*" />
+        </fileset>
+      </sources>
+      <templates type="lexicon"> <filelist refid="extract-lexicon" /> </templates>
+      <templates type="morph"> <filelist refid="extract-morph" /> </templates>
+      <templates type="rules"> <filelist refid="extract-rules" /> </templates>
+    </extract>
+    <copy todir="${grams.dir}/train-rcf1">
+      <fileset dir="${extract.dir}" includes="*.xml,*.html"/>
+    </copy>
+  </target>
+
   <!-- Checks whether the training lexicon (in particular) is up-to-date. -->
   <target name="check-dev-extracted" depends="init">
     <uptodate property="extract.dev.uptodate" 
@@ -466,7 +489,7 @@
   <!-- 3rd: do ccg-build -f build-models.xml all                           -->
   <!-- =================================================================== -->
 
-  <target name="extract-various" depends="extract-all,extract-train,extract-train-cfc10,extract-dev"/>
+  <target name="extract-various" depends="extract-all,extract-train,extract-train-cfc10,extract-train-rcf1,extract-dev"/>
 
 </project>
 

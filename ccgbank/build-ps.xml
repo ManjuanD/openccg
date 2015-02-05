@@ -516,6 +516,239 @@
     </java>
   </target>
 
+  <!--============================================================= -->
+  <!--Training an Openccg parser with Berkeley                      -->
+  <!--==============================================================-->
+ <target name="eval-cat-freq">
+    <echo>Evaluate the distribution of category distribution...</echo>
+    <exec executable="python" output="logs/eval.cat.freq.log">
+      <arg value="bin/evalTrainWithCatCutoff.py"/>
+    </exec>
+ </target>
+
+ <target name="read-trees-from-xml" depends="eval-cat-freq">
+    <echo>Convert OpenCCG derivations into trees for parser training</echo>
+    <exec executable="python" output="logs/read.trees.from.xml.log">
+      <arg value="bin/readTreeFromXmlWithCutoff.py"/>
+    </exec>
+ </target>
+
+ <target name="train-bkl-parser" depends="read-trees-from-xml">
+ <!--target name="train-bkl-parser"-->
+    <echo> Train an OpenCCG parser with Berkeley grammar trainer</echo>
+    <java classname="edu.berkeley.nlp.PCFGLA.GrammarTrainer" output="logs/bkl.parser.train.log">
+      <classpath>
+           <pathelement location="${bkl.dir}/berkeleyParser.jar"/>
+      </classpath>
+      <arg value="-path"/> <arg value="train.linetrees"/>
+      <arg value="-SMcycles"/> <arg value="5"/>
+      <arg value="-out"/> <arg value="${bkl.dir}/catCutoff5iter.gr"/>
+      <arg value="-treebank"/> <arg value="SINGLEFILE"/>
+    </java>    
+ </target>
+
+ <target name="parse-bkl-parser">
+    <echo> Parsing dev section with Berkerley-trained Openccg Parser</echo>
+    <java classname="edu.berkeley.nlp.PCFGLA.GrammarTester" output="logs/bkl.dev.parses">
+      <classpath>
+           <pathelement location="${bkl.dir}/berkeleyParser.jar"/>
+      </classpath>
+      <arg value="-path"/> <arg value="dev.linetrees"/>
+      <arg value="-in"/> <arg value="${bkl.dir}/catCutoff5iter.gr"/>
+      <arg value="-treebank"/> <arg value="SINGLEFILE"/>
+    </java>    
+ </target>
+
+ <target name="read-derivation" depends="parse-bkl-parser">
+    <echo>Read derivations from parses</echo>
+    <exec executable="python" output="logs/read_deri_dev.log">
+      <arg value="bin/readXmlFromTree.py"/>
+      <arg value="logs/bkl.dev.parses"/>
+      <arg value="dev_deri"/>
+      <arg value="catMatchWithCutoff.pkl"/>
+      <arg value="dev.string"/>
+    </exec>
+  </target>
+
+  <target name="change-file-structure" depends="read-derivation">
+    <echo>change into directory structure that conversion requires</echo>
+    <mkdir dir="dev_deri_f/"/>
+    <mkdir dir="dev_deri_f/00"/>
+    <exec executable="python">
+      <arg value="bin/collapSentence2File.py"/>
+      <arg value="dev_deri"/>
+      <arg value="dev_deri_f/00/"/>
+    </exec>
+  </target>
+
+  <target name="simplify-lexicon">
+    <echo>Simplify lexicon file to faciliate converting bkl-parses into lfs</echo>
+    <exec executable="python">
+      <arg value="bin/simplifyLexicon.py"/>
+      <arg value="${extract.dir}/grammars/train-rcf1/lexicon.xml"/>
+      <arg value="${extract.dir}/"/>
+    </exec>
+  </target>
+
+  <target name="copy-train-grammar-bkl" depends="simplify-lexicon">
+    <echo>Copying train grammar without cutoffs to ${extract.dir}</echo>
+    <copy todir="${extract.dir}/" overwrite="true">
+      <fileset dir="${grams.dir}/train" includes="*.xml,*.html"/>
+    </copy>
+    <copy todir="${extract.dir}/" overwrite="true">
+      <fileset dir="${extract.dir}" includes="*.xsl"/>
+    </copy>
+    <copy todir="${extract.dir}" file="${grams.dir}/dev/morph.xml" overwrite="true"/>
+    <copy tofile="${extract.dir}/lexicon.xml" file="${extract.dir}/simplified-lexicon.xml" overwrite="true"/>
+  </target>
+  
+  <target name="save-gold-lfs">
+    <echo>Save gold-lfs somewhere else</echo>
+    <mkdir dir="${extract.dir}/gold-lfs"/>
+    <copy todir="${extract.dir}/gold-lfs" overwrite="true">
+      <fileset dir="${extract.dir}/test/*"/>
+    </copy>    
+  </target>  
+
+  <target name="convert-to-lfs" depends="change-file-structure, simplify-lexicon, copy-train-grammar-bkl, save-gold-lfs">
+    <echo>convert derivations into lfs</echo>
+    <for param="file">
+      <path>
+        <fileset dir="dev_deri_f/00" includes="*.xml"/>
+      </path>
+      <sequential>
+        <echo>converting @{file}</echo>
+        <propertyregex override="yes"
+                               property="name.base"  input="@{file}"
+                       regexp="([^\.|/]*)\.xml" select="\1"/>
+        <echo>the based name is ${name.base}</echo>
+        <exec executable="ccg-build">
+          <arg value="-Dconvert.dir"/> <arg value="dev_deri_f"/>
+          <arg value="-Dsect"/> <arg value="00"/>
+          <arg value="-Dfile"/> <arg value="${name.base}"/>
+          <arg value="-f"/> <arg value="build-brk.xml"/>
+        </exec>
+      </sequential>
+    </for>
+  </target>
+
+  <target name="evaluate-deps">
+    <echo>evaluate the parses by dependency accuracy</echo>
+    <echo>Read deps from gold-lfs</echo>
+    <exec executable="python">
+      <arg value="bin/readDepfromXml.py"/>
+      <arg value="${extract.dir}/gold-lf/00/"/>
+      <arg value="gold-dev-deps.pkl"/>
+    </exec>
+    <echo>Read deps from auto-parses</echo>
+    <exec executable="python">
+      <arg value="bin/readDepfromXml.py"/>
+      <arg value="${extract.dir}/test/00/"/>
+      <arg value="bkl-dev-deps.pkl"/>
+    </exec>
+   <echo>Calculating dependency accuracy of bklOpenCCG parser</echo>
+   <exec executable="python">
+      <arg value="bin/compareDepTwo.py"/>
+      <arg value="gold-dev-deps.pkl"/>
+      <arg value="bkl-dev-deps.pkl"/>
+    </exec>
+  </target>
+
+ <target name="index-novel-string" depends="postag-prep">
+    <echo>Index the novel strings</echo>
+    <exec executable="python">
+      <arg value="bin/indexNovelString.py"/>
+      <arg value="${novel.file}.dir/nertext-nolabs"/>
+    </exec>
+    <copy file="stringIndex.pkl" todir="${novel.file}.dir"/>
+    <delete file="stringIndex.pkl"/>
+  </target>
+
+ <target name="parse-novel-bklopccg" depends="postag-prep">
+    <echo> Parsing novel text with Berkerley-trained Openccg Parser</echo>
+    <exec executable="java" dir="${basedir}">
+      <arg value="-jar"/> <arg value="${bkl.dir}/berkeleyParser.jar"/>
+      <arg value="-gr"/> <arg value="${bkl.dir}/catCutoff5iter.gr"/>
+      <arg value="-kbest"/> <arg value="5"/>
+      <arg value="-inputFile"/> <arg value="${novel.file}.dir/nertext-nolabs"/>
+      <arg value="-outputFile"/> <arg value="${novel.file}.dir/text.parse"/>
+    </exec>
+ </target>
+
+ <target name="read-derivation-novel" depends="parse-novel-bklopccg,index-novel-string">
+    <echo>Read derivations from parses</echo>
+    <exec executable="python">
+      <arg value="bin/readXmlFromTreeNovel.py"/>
+      <arg value="${novel.file}.dir/text.parse"/>
+      <arg value="${novel.file}.dir/text_deri"/>
+      <arg value="catMatchWithCutoff.pkl"/>
+      <arg value="${novel.file}.dir/stringIndex.pkl"/>
+    </exec>
+  </target>
+
+  <target name="change-file-structure-novel" depends="read-derivation-novel">
+    <echo>change into directory structure that conversion requires</echo>
+    <mkdir dir="${novel.file}.dir/text_deri_f/"/>
+    <mkdir dir="${novel.file}.dir/text_deri_f/00"/>
+    <exec executable="python">
+      <arg value="bklOpccg/collapSentence2File.py"/>
+      <arg value="${novel.file}.dir/text_deri"/>
+      <arg value="${novel.file}.dir/text_deri_f/00/"/>
+    </exec>
+  </target>
+
+  <target name="copy-train-grammar-novel-bkl" depends="postag-prep">
+    <echo>Copying train grammar without cutoffs to ${novel.file}.dir</echo>
+     <mkdir dir="${novel.file}.dir/extract"/>
+    <copy todir="${novel.file}.dir/extract" overwrite="true">
+      <fileset dir="${grams.dir}/train" includes="*.xml,*.html"/>
+    </copy>
+    <copy todir="${novel.file}.dir/extract/" overwrite="true">
+      <fileset dir="${extract.dir}" includes="*.xsl"/>
+    </copy>
+    <copy todir="${novel.file}.dir/extract/info/" file="${extract.dir}/info/combos-train" overwrite="true"/>
+  </target>
+
+  <target name="add-unseen-morph" depends="copy-train-grammar-novel-bkl,change-file-structure-novel">
+    <echo>add unseen morph from novel text</echo>
+    <exec executable="python">
+      <arg value="bin/addUnseenMorph.py"/>
+      <arg value="${extract.dir}/grammars/train/morph.xml"/>
+      <arg value="${novel.file}.dir/text_deri_f/00"/>
+    </exec>
+    <copy file="morph.xml" todir="${novel.file}.dir/extract" overwrite="true"/>
+    <delete file="morph.xml"/>
+  </target>
+
+  <target name="copy-simp-lexi-novel">
+    <echo>copy simplified lexicon.xml into novel directory</echo>
+    <copy file="bklOpccg/lexicon.xml" todir="${novel.file}.dir/extract" overwrite="true"/>
+  </target>
+
+  <target name="convert-to-lfs-novel" depends="add-unseen-morph,copy-simp-lexi-novel">
+    <echo>convert derivations into lfs</echo>
+    <for param="file">
+      <path>
+        <fileset dir="${novel.file}.dir/text_deri_f/00" includes="*.xml"/>
+      </path>
+      <sequential>
+        <echo>converting @{file}</echo>
+        <propertyregex override="yes"
+                               property="name.base"  input="@{file}"
+                       regexp="([^\.|/]*)\.xml" select="\1"/>
+        <echo>the based name is ${name.base}</echo>
+        <exec executable="ccg-build">
+          <arg value="-Dconvert.dir"/> <arg value="${novel.file}.dir/text_deri_f"/>
+          <arg value="-Dsect"/> <arg value="00"/>
+          <arg value="-Dfile"/> <arg value="${name.base}"/>
+          <arg value="-Dnovel.file.dir"/> <arg value="${novel.file}.dir"/>
+          <arg value="-f"/> <arg value="build-brk-novel.xml"/>
+        </exec>
+      </sequential>
+    </for>
+  </target>
+
+
   <!-- =================================================================== -->
   <!-- Top-level                                                           -->
   <!-- 1st: run all                                                        -->
@@ -528,5 +761,7 @@
   <target name="test" depends="test-parser"/>
   <target name="test-perceptron" depends="test-parser-perceptron"/>
   <target name="test-novel" depends="test-parser-novel"/>
+  <target name="test-bkl-parser" depends="convert-to-lfs"/>
+  <target name="test-bkl-parser-novel" depends="convert-to-lfs-novel"/>
 
 </project>

@@ -419,6 +419,32 @@ CCGbank.)
 Naturally, the models can also be run on novel text, as described in
 the section on using pre-built models.
 
+Train an OpenCCG parser with Berkeley Grammar Trainer
+=====================================================
+
+You can also train the OpenCCG parser with Berkeley Grammar Trainer. First 
+we need to convert the OpenCCG derivations into trees of PCFG format, then 
+train a grammar with Berkeley Grammar Trainer. Later we need to convert 
+the auto parses from this berkeley trained OpenCCG parser back to derivations,
+which later will be converted into lfs. We train the parser with frequent 
+categories (occurring at least 10 times in the training corpus). This 
+parser achieves around 87% in labelled dependency accuracy and 92% in 
+unlabelled dependency accuracy on the dev section (Section 00), which 
+is around 4%~5% better than the original OpenCCG Parser. 
+
+In order to train your bkl-OpenCCG parser, you need to first install
+Berkeley Parser. Then change the bkl.dir in build-model.properties
+into your Berkerley parser directory. 
+
+If you have not trained your own models as directed above in Building 
+English Model from CCGBank, you need to run the commands specified there
+from the begining to ``ccg-build extract-various''. Among them, ``convert_all''
+will yield the OpenCCG deriavations which we need for training the parser. 
+"extract-various" will give us the grammars files which are needed for converting
+derivations into lfs. 
+
+After you set up the Berkeley parser and extract grammars files, you can run
+
 
 Viewing CCGbank derivations
 ===========================
