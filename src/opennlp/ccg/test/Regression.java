@@ -39,6 +39,7 @@ import opennlp.ccg.synsem.*;
 import opennlp.ccg.util.Pair;
 import opennlp.ccg.util.SingletonList;
 import opennlp.ccg.perceptron.*;
+import opennlp.ccgbank.extract.Testbed;
 
 import org.jdom.*;
 import org.jdom.output.Format;
@@ -399,7 +400,8 @@ public class Regression {
     
     // normalizes realizations for BLEU scoring
     // at present, this means replacing underscores with spaces and escaping for xml output
-    private String norm_bleu(String s) { return xmlEscape(s.replace('_', ' ')); }
+    // private String norm_bleu(String s) { return xmlEscape(s.replace('_', ' ')); }
+    private String norm_bleu(String s) { return xmlEscape(s.replace('_', '_')); }
     
     
     /** Runs the test on the items in the given file or directory of files. */
@@ -407,7 +409,7 @@ public class Regression {
     	// set up event file (if any)
     	if (eventfile != null) events = EventFile.openWriter(new File(eventfile));
         // set up bleu output, n-best realizations, rescoring, n-best parses (if apropos)
-    	bleuSetup(); nbestrealSetup(); rescoreSetup(); nbestparseSetup();
+   	bleuSetup(); nbestrealSetup(); rescoreSetup(); nbestparseSetup();
     	// do each file or files
     	for (File f : getXMLFiles(regressionFile))
     		runSingleTest(f);
@@ -682,7 +684,31 @@ public class Regression {
                 	if (nbestincludelfs) {
                     	Element lfElt = grammar.makeLfElt(compactedLF);
                     	nbestparsePW.println(outputter.outputString(lfElt));
-                    	nbestparsePW.println("</best>");                		
+			
+			//add full-words--by MJD May2014			
+			Element fullWordsElt = new Element("full-words");
+			Sign best = parses.get(0);
+			Tokenizer tokenizer = grammar.lexicon.tokenizer;
+			fullWordsElt.addContent(tokenizer.format(best.getWords()));
+			nbestparsePW.println(outputter.outputString(fullWordsElt));
+			
+		        //add pred-info--by MJD May2014
+			//Category cat = best.getCategory();
+			//String predInfo = null;
+			//if (cat.getLF() != null){
+			//    LF flatLF = cat.getLF();
+			//}
+			//Map<String,String> predInfoMap = new HashMap<String,String>();
+			//Testbed.extractPredInfo(flatLF, predInfoMap);
+			//predInfo = Testbed.getPredInfo(predInfoMap);			
+			//if (predInfo != null) {
+			//    Element predInfoElt = new Element("<pred-info>");
+			//    predInfoElt.setAttribute("data", predInfo);
+			//    nbestparsePW.println(outputter.outputString(predInfoElt));
+			//    
+			//}
+                    	nbestparsePW.println("</best>");
+
                 	}
             	}
             	// add remaining n-best 
@@ -701,9 +727,17 @@ public class Regression {
                     EPsScorer.Results parseScoreK = EPsScorer.score(lfToScore, goldLF);
                 	String scores = "score=\"" + nf.format(parseScoreK.fscore) + "\" edge-score=\"" + nfE.format(edgeScore) + "\"";
                 	nbestparsePW.println("<next " + scores + tagend);
-                	if (nbestincludelfs) {
-                    	Element lfElt = grammar.makeLfElt(compactedLFk);
+                	if (nbestincludelfs) { 
+                   	Element lfElt = grammar.makeLfElt(compactedLFk);
                     	nbestparsePW.println(outputter.outputString(lfElt));
+			
+			//add full-words--by MJD May2014			
+			Element fullWordsElt = new Element("full-words");
+			Sign next = parses.get(k);
+			Tokenizer tokenizer = grammar.lexicon.tokenizer;
+			fullWordsElt.addContent(tokenizer.format(next.getWords()));
+			nbestparsePW.println(outputter.outputString(fullWordsElt));
+			
                     	nbestparsePW.println("</next>");
                 	}
             	}
@@ -874,6 +908,12 @@ public class Regression {
                     LF lfc = HyloHelper.compact(lf, index);
                 	Element lfElt = grammar.makeLfElt(lfc);
                 	nbestrealPW.println(outputter.outputString(lfElt));
+			//add full-words--by MJD May2014			
+			Element fullWordsElt = new Element("full-words");			
+			Tokenizer tokenizer = grammar.lexicon.tokenizer;
+			//Sign best = bestEdge.getSign();
+			fullWordsElt.addContent(tokenizer.format(sign.getWords()));
+			nbestrealPW.println(outputter.outputString(fullWordsElt));
             		nbestrealPW.println("</best>");
             		
             	}
@@ -901,6 +941,12 @@ public class Regression {
                             LF lfc = HyloHelper.compact(lf, index);
                         	Element lfElt = grammar.makeLfElt(lfc);
                         	nbestrealPW.println(outputter.outputString(lfElt));
+				//add full-words--by MJD May2014			
+				Element fullWordsElt = new Element("full-words");
+				Tokenizer tokenizer = grammar.lexicon.tokenizer;
+				//Sign next = e.getSign();
+				fullWordsElt.addContent(tokenizer.format(sign.getWords()));
+				nbestrealPW.println(outputter.outputString(fullWordsElt));
                     		nbestrealPW.println("</next>");
                     	}
                     }
