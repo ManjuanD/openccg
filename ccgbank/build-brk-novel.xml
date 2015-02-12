@@ -1,0 +1,58 @@
+<!--
+ Copyright (C) 2014 Michael White
+ 
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 2.1 of the License, or (at your option) any later version.
+ 
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU Lesser General Public License for more details.
+ 
+ You should have received a copy of the GNU Lesser General Public
+ License along with this program; if not, write to the Free Software
+ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+-->
+
+<!-- This build file is for testing LF creation from derivations
+     created with the Berkeley parser trained on the openccgbank. -->
+
+<project name="BrkLF" default="extract" basedir=".">
+  
+  <taskdef resource="net/sf/antcontrib/antlib.xml"/>
+  <property file="build.properties" />
+  <property file="build-models.properties"/>
+  <!-- =================================================================== -->
+  <!-- Init                                                                -->
+  <!-- =================================================================== -->
+
+  <target name="init">
+    <taskdef resource="opennlp/ccgbank/ccgbank.properties"/>
+  </target>
+
+
+  <!-- =================================================================== -->
+  <!-- Extraction                                                          -->
+  <!-- =================================================================== -->
+
+  <!-- for the section and file, just makes LFs -->
+  <!-- NB: first need to copy train grammar and appropriate morph file -->
+  <target name="extract" depends="init">
+    <echo>Making LFs</echo>
+    <echo>Section: ${sect}  File: ${file}</echo>
+    <!--extract target="${extract.dir}"-->
+    <extract target="${novel.file.dir}/extract">
+      <sources>
+	<fileset dir="${convert.dir}">
+	  <include name="${sect}/${file}.xml" />
+	</fileset>
+      </sources>
+      <testbed debugDerivations="true"/>
+    </extract>
+  </target>
+
+</project>
+
+<!-- End of file -->

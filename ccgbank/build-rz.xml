@@ -54,6 +54,11 @@
     <copy tofile="${extract.dir}/morph.xml" file="${grams.dir}/dev/morph.xml" overwrite="true"/>
   </target>
 
+  <target name="copy-simp-lexi">
+    <echo>Copying simplified lexicon file to ${extract.dir}</echo>
+    <copy tofile="${extract.dir}/lexicon.xml" file="${extract.dir}/simplified-lexicon.xml" overwrite="true"/>
+  </target>
+
   <target name="copy-test-morph" depends="copy-train-grammar">
     <echo>Copying test morph to ${extract.dir}</echo>
     <copy tofile="${extract.dir}/morph.xml" file="${grams.dir}/test/morph.xml" overwrite="true"/>
@@ -353,6 +358,22 @@
       <arg value="-scorer"/> <arg value="plugins.MyRealizerPerceptronScorer"/>
       <arg value="-nbestrealfile"/> <arg value="${novel.file}.dir/realize.nbest"/>
       <arg value="${novel.file}.dir/tb.xml"/>
+    </java>
+  </target>
+
+  <!-- nb: this target relies on test-bkl-parser having been run first -->
+  <target name="realize-bkl-parses" depends="copy-dev-morph,load-prefs-test,copy-simp-lexi">
+    <echo>Realizing bkl parses back</echo>
+    <java classname="opennlp.ccg.test.Regression" output="logs/log.bkl.rz.log">
+      <arg value="-noparsing"/>
+      <arg value="-g"/> <arg value="${extract.dir}/grammar.xml"/>
+      <arg value="-htconfig"/> <arg value="${hypertagger.models.dir}/ht2.config"/>
+      <!-- <arg value="-htgold"/> -->
+      <arg value="-nbestincludelfs"/>
+      <arg value="-scorer"/> <arg value="plugins.MyRealizerPerceptronScorer"/>
+      <arg value="-nbestrealfile"/> <arg value="bkl.parses.realize"/>
+      <arg value="-bleu"/> <arg value="${log.dir}/bkl.dev.realize.bleu"/>
+      <arg value="${extract.dir}/test/00"/>
     </java>
   </target>
 
